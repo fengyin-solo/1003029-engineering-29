@@ -33,3 +33,18 @@ body { margin: 0; background: #f6f8fb; color: #1f2937; }
 .link { border: none; background: none; color: var(--brand); cursor: pointer; padding: 0; }
 .page-foot { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .error-text { color: #b42318; }
+
+/* 就绪门：后端没就绪时的等待页（纯 DOM 渲染，不经过 Vue） */
+.ready-gate { max-width: 640px; margin: 15vh auto 0; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 24px 28px; }
+.ready-title { font-size: 18px; margin: 0 0 14px; }
+.ready-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ready-item { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+.ready-icon { width: 16px; text-align: center; flex: none; }
+.ready-item.pass .ready-icon { color: #15803d; }
+.ready-item.fail .ready-icon { color: #b42318; }
+.ready-item.pending { color: var(--muted); }
+.ready-name { font-weight: 600; white-space: nowrap; }
+.ready-detail { color: var(--muted); }
+.ready-item.fail .ready-detail { color: #b42318; }
+.ready-hint { font-size: 13px; margin: 4px 0; }
+.ready-retry { font-size: 12px; color: var(--muted); margin: 0; }

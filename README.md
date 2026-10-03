@@ -32,7 +32,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ./run.sh
 ```
 
-健康检查：`curl http://127.0.0.1:8000/api/health`
+健康检查：`curl http://127.0.0.1:8000/api/health`（活没活）
+就绪检查：`curl http://127.0.0.1:8000/api/ready`（好没好，见下文「就绪探测」）
 
 ### 前端
 
@@ -44,6 +45,35 @@ npm run dev
 
 前端默认监听 `http://127.0.0.1:5173/`，dev server 不会自动打开浏览器，
 需要自己访问。`/api` 由 vite 代理到后端 `http://127.0.0.1:8000`。
+
+页面有就绪门：探到后端 `/api/ready` 通过才挂载，没通过时显示等待页并自动重试，
+不用手动刷新。
+
+## 就绪探测
+
+服务"好没好"不看终端，看就绪地址：`GET /api/ready`。
+
+- 200 表示就绪；503 表示未就绪。响应里 `failed` 点出没过的是哪项，`checks` 带逐项明细。
+- 检查按 `port → deps → proxy` 顺序成链，前一项没过，后面的项记为待探测：
+  - `port`：后端配置的监听地址（`APP_HOST:APP_PORT`）可连接；
+  - `deps`：`requirements.txt` 里的依赖装齐、版本达标；
+  - `proxy`：前端 dev server（`APP_PROXY_URL`）的 `/api` 代理确实指回本服务
+    （代理转发时带 `x-proxied-by` 标记头，防止把地址直接指到后端造成误报）。
+- 断点续探：已通过的项进程内缓存，重试只从未通过的项接着探；探测全部只读，
+  重复调用不会重复装依赖、不会重复拉起任何服务。
+
+同一个就绪结论，这些入口看到的一致：
+
+| 入口 | 用法 |
+| --- | --- |
+| 直连后端 | `curl http://127.0.0.1:8000/api/ready` |
+| 经前端代理 | `curl http://127.0.0.1:5173/api/ready` |
+| 本地命令 | `make ready`（即 `python -m app.readiness`，未就绪时退出码非 0） |
+| docker-compose | backend 容器的 healthcheck 跑的就是这套检查 |
+
+换机器/换端口时用环境变量对齐：`APP_HOST`、`APP_PORT`、`APP_PROXY_URL`（后端），
+`VITE_PROXY_TARGET`（前端代理目标），取值见 `.env.example`。默认值不变，
+老启动命令（`run.sh`、`make backend`、`npm run dev`）不用改。
 
 ## 业务模块
 
@@ -76,3 +106,5 @@ npm run dev
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+- 就绪结论只认 `/api/ready` 这一套检查（`backend/app/readiness.py`）；
+  新加的入口（脚本、流水线、健康检查）复用它，不另写一套判断。

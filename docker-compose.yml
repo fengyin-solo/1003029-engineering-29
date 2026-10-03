@@ -5,9 +5,22 @@ services:
       - "8000:8000"
     environment:
       - APP_ENV=local
+      - APP_HOST=0.0.0.0
+      # 就绪探测的 proxy 项顺着这个地址验证前端代理
+      - APP_PROXY_URL=http://frontend:5173
+    healthcheck:
+      # 与本地 `make ready`、浏览器里的 /api/ready 是同一套检查，结论一致
+      test: ["CMD", "python", "-m", "app.readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
   frontend:
     build: ./frontend
     ports:
       - "5173:5173"
+    environment:
+      # 容器里 127.0.0.1 不是后端，代理目标指向 backend 服务名
+      - VITE_PROXY_TARGET=http://backend:8000
     depends_on:
       - backend

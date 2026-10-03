@@ -23,6 +23,9 @@ export default defineConfig({
       '/api': {
         target: proxyTarget,
         changeOrigin: true,
+        // 转发时带上标记头：后端就绪探测的 proxy 项靠它确认请求真经过了前端代理，
+        // 标记值与 backend/app/readiness.py 里的 PROXY_MARKER 保持一致
+        headers: { 'x-proxied-by': 'vite-dev' },
       },
     },
   },
