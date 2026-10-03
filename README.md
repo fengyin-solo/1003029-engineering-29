@@ -33,6 +33,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
 健康检查：`curl http://127.0.0.1:8000/api/health`
+就绪探测：`curl http://127.0.0.1:8000/api/ready`（或 `make ready`）
 
 ### 前端
 
@@ -44,6 +45,40 @@ npm run dev
 
 前端默认监听 `http://127.0.0.1:5173/`，dev server 不会自动打开浏览器，
 需要自己访问。`/api` 由 vite 代理到后端 `http://127.0.0.1:8000`。
+
+## 就绪探测
+
+后端就绪地址固定为 `GET /api/ready`：端口在听、依赖装全、前端代理指对，
+三项全通才返回 `ready: true`（HTTP 200）；任何一项没通都返回 503，
+并在响应里点出来——`checks.<项>.status` 标出哪项没过、为什么，
+`retry_from` 指明下次探测从哪项接着来。
+
+- 探测按 `port → deps → proxy` 顺序推进；已通过的项会被记住不重跑，
+  探测失败重试时从没通的那一项接着探。
+- 依赖缺失时会自动补装一次（且仅一次），重复或并发探测不会把安装重复拉起。
+- 结论只依赖运行配置和实际连通性，不绑定某台机器：换一台机器，
+  同一个就绪地址给出的口径一致；直连后端、经前端代理（`/api/ready`）、
+  `make ready`、容器 HEALTHCHECK 看到的都是同一份结论。
+- 前端在探到后端就绪之前不挂载页面，只显示探测进度并自动重试，就绪后自动进入。
+
+本地开发：
+
+```bash
+make backend   # 起后端（老命令不变）
+make frontend  # 起前端（老命令不变）
+make ready     # 看就绪结论；未就绪时退出码非 0，可接在脚本里做等待
+```
+
+部署时涉及的环境变量：
+
+| 变量 | 作用 | 默认值 |
+| --- | --- | --- |
+| `APP_PORT` | 后端监听端口，需与实际启动端口一致（`PORT=9000 ./run.sh` 会自动对齐） | `8000` |
+| `PROXY_HEALTH_URL` | 就绪探测用来确认代理回源的健康地址 | `http://127.0.0.1:5173/api/health` |
+| `VITE_PROXY_TARGET` | 前端 vite 代理目标（起 dev server 前设置） | `http://127.0.0.1:8000` |
+
+后端镜像内置 `HEALTHCHECK`，直接复用 `/api/ready`；前端不在本机的部署
+（如 docker-compose）要设 `PROXY_HEALTH_URL` 指向前端服务，compose 文件里已接好。
 
 ## 业务模块
 
@@ -72,6 +107,7 @@ npm run dev
 
 ## 约定
 
+- 服务起没起好，以就绪地址 `GET /api/ready` 的结论为准，不靠肉眼判断终端输出。
 - 每个模块的前端页面在 `frontend/src/views/<模块>/index.vue`，后端接口在
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。

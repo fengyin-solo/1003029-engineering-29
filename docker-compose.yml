@@ -5,9 +5,14 @@ services:
       - "8000:8000"
     environment:
       - APP_ENV=local
+      # 容器网络里前端不在本机，就绪探测的代理回源地址指向前端服务
+      - PROXY_HEALTH_URL=http://frontend:5173/api/health
   frontend:
     build: ./frontend
     ports:
       - "5173:5173"
+    environment:
+      # vite 代理目标指向后端服务，保证就绪探测的代理项能通
+      - VITE_PROXY_TARGET=http://backend:8000
     depends_on:
       - backend
